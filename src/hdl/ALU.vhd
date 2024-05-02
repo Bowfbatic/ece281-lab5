@@ -23,7 +23,12 @@
 --|
 --| ALU OPCODES:
 --|
---|     ADD     000
+--|     ADD                    000
+--|     SUBTRACT               100
+--|     BITWISE AND            101 	
+--|     BITWISE OR	           001 	
+--|     LEFT LOGICAL SHIFT	   011	        
+--|     RIGHT LOGICAL SHIFT    010	        
 --|
 --|
 --|
@@ -35,21 +40,36 @@ library ieee;
 
 
 entity ALU is
--- TODO
+
+    Port (
+        i_A :   in std_logic_vector (7 downto 0);
+        i_B :   in std_logic_vector (7 downto 0);
+        i_op    :   in std_logic_vector (2 downto 0);
+        o_results   :   out std_logic_vector (7 downto 0);
+        o_flags     :   out std_logic_vector (2 downto 0)
+    );
+    
 end ALU;
 
 architecture behavioral of ALU is 
   
 	-- declare components and signals
-
+	signal w_Cout, w_zero  :   std_logic;
+	signal w_results   :   std_logic_vector (7 downto 0);
+	
   
 begin
 	-- PORT MAPS ----------------------------------------
-
-	
-	
 	-- CONCURRENT STATEMENTS ----------------------------
+	w_results <= std_logic_vector(unsigned(i_A) + unsigned(i_B));
+	w_zero <= '1' when (w_results = "00000000") else '0';
 	
+	w_Cout <= '1' when (w_results < i_A and w_results < i_B) else
+	          '0';
+	o_results <= w_results;
 	
+	o_flags(2) <= '0';
+	o_flags(1) <= w_zero;
+	o_flags(0) <= w_Cout;
 	
 end behavioral;
