@@ -80,12 +80,23 @@ architecture top_basys3_arch of top_basys3 is
         i_reset		: in  STD_LOGIC; -- asynchronous
         i_D3 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
 		i_D2 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
---		i_D1 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
---		i_D0 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+		i_D1 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+		i_D0 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
 		o_data		: out STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
 		o_sel		: out STD_LOGIC_VECTOR (3 downto 0)	-- selected data line (one-cold)
 	);
 	end component TDM4;
+	
+	component twoscomp_decimal is
+	Port (
+	   i_binary: in std_logic_vector(7 downto 0);
+--        o_negative: out std_logic_vector ( 3 downto 0);
+        o_negative: out std_logic;
+        o_hundreds: out std_logic_vector(3 downto 0);
+        o_tens: out std_logic_vector(3 downto 0);
+        o_ones: out std_logic_vector(3 downto 0)
+    );
+    end component twoscomp_decimal;
     
     component sevenSegDecoder is
     Port (
@@ -95,16 +106,17 @@ architecture top_basys3_arch of top_basys3 is
     end component sevenSegDecoder;
     
     
-    signal w_regA, w_regB, w_results, w_val    :   std_logic_vector (7 downto 0);
+    signal w_regA, w_regB, w_results, w_val, w_neg_display    :   std_logic_vector (7 downto 0);
     signal w_op, w_flags :   std_logic_vector (2 downto 0);
     signal w_tdm, w_an    :   std_logic_vector (3 downto 0);
     
     signal w_cycle  :   std_logic_vector (3 downto 0) := "0001";
     signal f_Q, f_Q_next    :   std_logic_vector (3 downto 0);
     
+    signal w_neg   :   std_logic;
+    signal w_hund, w_tens, w_ones, w_sevSegSign   :   std_logic_vector (3 downto 0);
+
     signal w_clk_tdm    :   std_logic;
-    
-    signal f_sel_an :   std_logic;
   
 begin
 	-- PORT MAPS ----------------------------------------
@@ -137,10 +149,21 @@ begin
     port map (
         i_clk => w_clk_tdm,
         i_reset => btnU,
-        i_D3 => w_val(7 downto 4),
-        i_D2 => w_val(3 downto 0),
+        i_D3 => w_sevSegSign,
+        i_D2 => w_hund,
+        i_D1 => w_tens,
+        i_D0 => w_ones,
         o_data => w_tdm,
         o_sel => w_an
+    );
+    
+    twoscomp_inst   :   twoscomp_decimal
+    port map (
+        i_binary => w_val,
+        o_negative => w_neg,
+        o_hundreds => w_hund,
+        o_tens => w_tens,
+        o_ones => w_ones
     );
     
     sevenSegDec_inst    :   sevenSegDecoder
@@ -151,16 +174,21 @@ begin
 	
 	
 	-- CONCURRENT STATEMENTS ----------------------------
-	f_sel_an <= '1' when w_cycle = "0001" else '0';
-	
-	an <= "1111" when (f_sel_an = '1') else
+	an <= "1111" when (w_cycle = "0001") else -- clear display on reset
 	       w_an;
+	       
 	w_val <= w_regA when (w_cycle = "1000") else
 	         w_regB when (w_cycle = "0100") else
 	         w_results when (w_cycle = "0010") else
 	         "00000000";
+	         
+	w_sevSegSign <= x"F" when (w_neg = '1') else --  negative
+	                x"E"; -- positive
+	                
+	w_op <= sw(2 downto 0);
 	
-	led(15 downto 13) <= w_flags;
+	
+	led(15 downto 13) <= w_flags when w_cycle = "0010" else "000";
 	led(3 downto 0) <= w_cycle;
 	led(12 downto 4) <= (others => '0');
 	
